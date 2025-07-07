@@ -36,10 +36,11 @@ app.post("/create-tickets", async (req, res) => {
     const puppeteer = require("puppeteer-core");
 
     const browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
       headless: true
     });
+    
 
     console.log("Using Chromium at:", process.env.PUPPETEER_EXECUTABLE_PATH);
     const fs = require('fs');
