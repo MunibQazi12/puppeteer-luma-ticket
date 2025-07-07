@@ -18,11 +18,20 @@ app.post("/create-tickets", async (req, res) => {
     // });
 
 
+    // const browser = await puppeteer.launch({
+    //   headless: true,
+    //   executablePath: "/usr/bin/chromium",
+    //   args: ['--no-sandbox', '--disable-setuid-sandbox']
+    // });
+
+    const puppeteer = require('puppeteer-core');
+
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath: "/usr/bin/chromium",
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
 
     const page = await browser.newPage();
     await page.goto(`https://lu.ma/event/manage/${eventID}/registration`, {
