@@ -12,8 +12,15 @@ app.post("/create-tickets", async (req, res) => {
   }
 
   try {
+    // const browser = await puppeteer.launch({
+    //   headless: true,
+    //   args: ['--no-sandbox', '--disable-setuid-sandbox']
+    // });
+
+
     const browser = await puppeteer.launch({
       headless: true,
+      executablePath: "/usr/bin/chromium",
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 

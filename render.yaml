@@ -3,5 +3,7 @@ services:
     name: puppeteer-luma-ticket
     env: node
     plan: free
-    buildCommand: "npm install"
-    startCommand: "npm start"
+    buildCommand: |
+      apt-get update && apt-get install -y chromium
+      npm install
+    startCommand: node server.js
