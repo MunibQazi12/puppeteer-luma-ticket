@@ -33,14 +33,18 @@ app.post("/create-tickets", async (req, res) => {
     // });
 
 
-    const puppeteer = require('puppeteer-core');
+    const puppeteer = require("puppeteer-core");
 
     const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium-browser',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: true
     });
 
-
+    console.log("Using Chromium at:", process.env.PUPPETEER_EXECUTABLE_PATH);
+    const fs = require('fs');
+    console.log("Exists:", fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH));
+    
 
     const page = await browser.newPage();
     await page.goto(`https://lu.ma/event/manage/${eventID}/registration`, {
