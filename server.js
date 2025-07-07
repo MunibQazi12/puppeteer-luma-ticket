@@ -1,5 +1,6 @@
 const express = require("express");
 // const puppeteer = require("puppeteer-core");
+const puppeteer = require("puppeteer-core");
 
 const app = express();
 app.use(express.json());
@@ -33,12 +34,11 @@ app.post("/create-tickets", async (req, res) => {
     // });
 
 
-    const puppeteer = require("puppeteer-core");
 
     const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: true
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
 
