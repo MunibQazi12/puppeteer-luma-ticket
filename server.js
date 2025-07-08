@@ -9,7 +9,7 @@ app.use(express.json());
 // ✅ Simple test route
 app.get("/", async (req, res) => {
   try {
-    const chromiumPath = execSync("which chromium").toString().trim();
+    const chromiumPath = execSync("which chrome").toString().trim();
     const browser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,

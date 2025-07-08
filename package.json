@@ -2,8 +2,7 @@
   "name": "puppeteer-luma-ticket",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "puppeteer browsers install chrome"
+    "start": "node server.js"
   },
   "engines": {
     "node": "20.x"
