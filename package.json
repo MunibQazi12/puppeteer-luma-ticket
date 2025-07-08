@@ -9,9 +9,8 @@
     "node": "20.x"
   },
   "dependencies": {
-    "chrome-aws-lambda": "^10.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "puppeteer-core": "^24.12.0"
+    "puppeteer": "^22.8.2"
   }
 }

@@ -1,32 +1,16 @@
 require("dotenv").config();
 const express = require("express");
-const puppeteer = require("puppeteer-core");
-const chromium = require("chrome-aws-lambda");
+// const puppeteer = require("puppeteer-core");
+// const chromium = require("chrome-aws-lambda");
+const puppeteer = require("puppeteer");
 
 const app = express();
 app.use(express.json());
 
 async function launchBrowser() {
-  let executablePath;
-
-  try {
-    executablePath = await chromium.executablePath;
-  } catch (e) {
-    console.error("❌ Failed to get chromium.executablePath:", e.message);
-  }
-
-  console.log("👉 chromium.executablePath:", executablePath);
-
-  if (!executablePath) {
-    throw new Error("❌ No Chrome executablePath found. This will break on Render.");
-  }
-
   return await puppeteer.launch({
-    executablePath,
-    headless: chromium.headless,
-    args: chromium.args,
-    ignoreHTTPSErrors: true,
-    defaultViewport: chromium.defaultViewport,
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 }
 
