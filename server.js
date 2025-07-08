@@ -7,27 +7,29 @@ const app = express();
 app.use(express.json());
 
 async function launchBrowser() {
-  const executablePath = await chromium.executablePath;
+  let executablePath;
+
+  try {
+    executablePath = await chromium.executablePath;
+  } catch (e) {
+    console.error("❌ Failed to get chromium.executablePath:", e.message);
+  }
 
   console.log("👉 chromium.executablePath:", executablePath);
 
-  const launchConfig = {
+  if (!executablePath) {
+    throw new Error("❌ No Chrome executablePath found. This will break on Render.");
+  }
+
+  return await puppeteer.launch({
     executablePath,
-    headless: true,
+    headless: chromium.headless,
     args: chromium.args,
     ignoreHTTPSErrors: true,
     defaultViewport: chromium.defaultViewport,
-  };
-  console.log("👉 launchConfig:", launchConfig);
-
-  if (!executablePath) {
-    throw new Error("❌ chromium.executablePath is null. Chrome binary not found.");
-
-  }
-
-
-  return await puppeteer.launch(launchConfig);
+  });
 }
+
 
 
 
