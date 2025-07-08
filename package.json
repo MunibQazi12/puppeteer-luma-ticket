@@ -1,5 +1,6 @@
 {
   "name": "puppeteer-luma-ticket",
+  "version": "1.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -8,8 +9,9 @@
     "node": "20.x"
   },
   "dependencies": {
+    "chrome-aws-lambda": "^10.1.0",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "puppeteer-core": "^24.12.0",
-    "chrome-aws-lambda": "^10.1.0"
+    "puppeteer-core": "^24.12.0"
   }
 }

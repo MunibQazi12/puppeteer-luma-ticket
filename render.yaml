@@ -1,10 +1,13 @@
 services:
   - type: web
     name: puppeteer-luma-ticket
-    env: node
-    plan: standard
-    buildCommand: "npm install --legacy-peer-deps"
-    startCommand: "npm start"
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
-      - key: NODE_ENV
-        value: production
+      - key: LUMA_EMAIL
+        sync: false
+      - key: LUMA_PASSWORD
+        sync: false
+      - key: PORT
+        value: 3000
