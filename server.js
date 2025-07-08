@@ -9,17 +9,24 @@ app.use(express.json());
 async function launchBrowser() {
   const executablePath = await chromium.executablePath;
 
-  if (!executablePath) {
-    throw new Error("❌ chromium.executablePath not found. Make sure you're using `chrome-aws-lambda` on Render.");
-  }
+  console.log("👉 chromium.executablePath:", executablePath);
 
-  return await puppeteer.launch({
+  const launchConfig = {
     executablePath,
-    headless: chromium.headless,
+    headless: true,
     args: chromium.args,
     ignoreHTTPSErrors: true,
     defaultViewport: chromium.defaultViewport,
-  });
+  };
+  console.log("👉 launchConfig:", launchConfig);
+
+  if (!executablePath) {
+    throw new Error("❌ chromium.executablePath is null. Chrome binary not found.");
+
+  }
+
+
+  return await puppeteer.launch(launchConfig);
 }
 
 
