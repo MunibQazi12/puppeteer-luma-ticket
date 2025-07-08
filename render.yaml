@@ -2,6 +2,11 @@ services:
   - type: web
     name: puppeteer-luma-ticket
     env: node
-    plan: free
-    # buildCommand: "npm install"
-    # startCommand: "npm start"
+    plan: standard  # upgraded from free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUPPETEER_CACHE_DIR
+        value: "/opt/render/.cache/puppeteer"
