@@ -1,15 +1,14 @@
 const express = require("express");
-const chromium = require("chrome-aws-lambda");
 const puppeteer = require("puppeteer-core");
+const chromium = require("chrome-aws-lambda");
 
 const app = express();
 app.use(express.json());
 
-// ✅ Health check route
 app.get("/", async (req, res) => {
   try {
     const browser = await puppeteer.launch({
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath, // ✅ required
       headless: chromium.headless,
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -17,33 +16,29 @@ app.get("/", async (req, res) => {
     });
 
     const page = await browser.newPage();
-    await page.goto(
-      `https://lu.ma/event/manage/evt-AzSk9qQDzaolFPD/registration`,
-      { waitUntil: "networkidle2" }
-    );
+    await page.goto("https://lu.ma/event/manage/evt-AzSk9qQDzaolFPD/registration", {
+      waitUntil: "networkidle2"
+    });
 
     const html = await page.content();
-    console.log("🔍 Page HTML (partial):", html.slice(0, 1000));
-
+    console.log("🔍 Page HTML (partial):", html.slice(0, 500));
     await browser.close();
-    res.send("Health check passed. Page loaded.");
+
+    res.send("Health check passed.");
   } catch (err) {
     console.error("Error loading page:", err);
     res.status(500).send(`Error: ${err.message}`);
   }
 });
 
-// ✅ Ticket creation endpoint
 app.post("/create-tickets", async (req, res) => {
   const { eventID } = req.body;
 
-  if (!eventID) {
-    return res.status(400).send("Missing eventID");
-  }
+  if (!eventID) return res.status(400).send("Missing eventID");
 
   try {
     const browser = await puppeteer.launch({
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath, // ✅ required
       headless: chromium.headless,
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -55,7 +50,7 @@ app.post("/create-tickets", async (req, res) => {
       waitUntil: "networkidle2"
     });
 
-    // ✅ Insert form-filling logic here
+    // TODO: Add ticket interaction logic here
 
     await browser.close();
     res.send("Tickets created");
