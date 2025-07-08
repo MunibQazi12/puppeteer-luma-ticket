@@ -1,41 +1,39 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const chromium = require("chrome-aws-lambda");
+const puppeteer = require("puppeteer-core");
 
 const app = express();
 app.use(express.json());
 
-// ✅ Simple test route
+// ✅ Health check route
 app.get("/", async (req, res) => {
   try {
     const browser = await puppeteer.launch({
-      executablePath: puppeteer.executablePath(), // ✅ dynamic path
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      ignoreHTTPSErrors: true
     });
 
     const page = await browser.newPage();
     await page.goto(
       `https://lu.ma/event/manage/evt-AzSk9qQDzaolFPD/registration`,
-      {
-        waitUntil: "networkidle2",
-      }
+      { waitUntil: "networkidle2" }
     );
-
-    const screenshotPath = `screenshot-${Date.now()}.png`;
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    console.log("✅ Screenshot saved as", screenshotPath);
 
     const html = await page.content();
     console.log("🔍 Page HTML (partial):", html.slice(0, 1000));
 
     await browser.close();
-    res.send("Tickets created");
+    res.send("Health check passed. Page loaded.");
   } catch (err) {
+    console.error("Error loading page:", err);
     res.status(500).send(`Error: ${err.message}`);
   }
 });
 
-// POST route to create tickets
+// ✅ Ticket creation endpoint
 app.post("/create-tickets", async (req, res) => {
   const { eventID } = req.body;
 
@@ -45,21 +43,24 @@ app.post("/create-tickets", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      executablePath: puppeteer.executablePath(), // ✅ dynamic path
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      ignoreHTTPSErrors: true
     });
 
     const page = await browser.newPage();
     await page.goto(`https://lu.ma/event/manage/${eventID}/registration`, {
-      waitUntil: 'networkidle2'
+      waitUntil: "networkidle2"
     });
 
-    // TODO: Add ticket form-filling logic here
+    // ✅ Insert form-filling logic here
 
     await browser.close();
     res.send("Tickets created");
   } catch (err) {
+    console.error("Ticket creation failed:", err);
     res.status(500).send(`Error: ${err.message}`);
   }
 });
