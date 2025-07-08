@@ -50,9 +50,11 @@ app.post("/create-tickets", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
+      executablePath: puppeteer.executablePath(),
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+    
 
     const page = await browser.newPage();
     await page.goto(`https://lu.ma/event/manage/${eventID}/registration`, {
