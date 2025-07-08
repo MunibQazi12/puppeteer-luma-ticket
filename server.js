@@ -115,7 +115,7 @@ app.post("/create-tickets", async (req, res) => {
   if (!eventID) return res.status(400).send("Missing eventID");
 
   // ✅ Send early response to Airtable
-  res.send({ status: "started", message: "Ticket creation started" });
+  // res.send({ status: "started", message: "Ticket creation started" });
 
   try {
     steps.push("Launching browser");
