@@ -14,31 +14,18 @@ async function launchBrowser() {
 
   return await puppeteer.launch({
     executablePath,
-    headless: true, // change to true for Render
+    headless: true, // true for Render
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     ignoreHTTPSErrors: true,
     defaultViewport: chromium.defaultViewport,
   });
-
-  // const browser = await puppeteer.launch({
-  //   executablePath,
-  //   headless: true,
-  //   args: chromium.args,
-  //   ignoreHTTPSErrors: true,
-  //   defaultViewport: chromium.defaultViewport,
-  // });
-
-  
-
 }
 
 async function createTicket(page, steps, name, description) {
   steps.push(`Opening modal to create: ${name}`);
 
-  // Wait until no modal is open
   await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 10000 });
 
-  // Click "New Ticket Type"
   await page.waitForSelector("button .label", { timeout: 10000 });
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
@@ -50,13 +37,11 @@ async function createTicket(page, steps, name, description) {
   steps.push("Waiting for modal to appear");
   await page.waitForSelector('input[name="name"]', { timeout: 10000 });
 
-  // Clear and type name
   steps.push(`Typing Ticket Name: ${name}`);
   await page.click('input[name="name"]', { clickCount: 3 });
   await page.keyboard.press("Backspace");
   await page.type('input[name="name"]', name, { delay: 50 });
 
-  // Add Description
   steps.push("Clicking Add Description");
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
@@ -65,33 +50,21 @@ async function createTicket(page, steps, name, description) {
     if (btn) btn.click();
   });
 
-    steps.push("Typing description");
-    await page.waitForSelector("textarea", { timeout: 5000 });
-    
-    // Focus textarea directly
-    await page.focus("textarea");
-    
-    // Select all existing content (if any) by pressing Ctrl+A / Cmd+A
-    await page.keyboard.down('Control');
-    await page.keyboard.press('A');
-    await page.keyboard.up('Control');
-    
-    // Clear it
-    await page.keyboard.press('Backspace');
-    
-    // Type new description
-    await page.type("textarea", description, { delay: 40 });
-  
+  steps.push("Typing description");
+  await page.waitForSelector("textarea", { timeout: 5000 });
+  await page.focus("textarea");
+  await page.keyboard.down('Control');
+  await page.keyboard.press('A');
+  await page.keyboard.up('Control');
+  await page.keyboard.press('Backspace');
+  await page.type("textarea", description, { delay: 40 });
 
-
-  // Enable approval
   steps.push("Enabling approval toggle");
   await page.evaluate(() => {
     const toggle = document.querySelector("#require-approval-toggle");
     if (toggle && !toggle.checked) toggle.click();
   });
 
-  // Submit form
   steps.push("Submitting ticket form");
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
@@ -100,22 +73,16 @@ async function createTicket(page, steps, name, description) {
     if (btn) btn.click();
   });
 
-  // Wait for modal to close
   steps.push("Waiting for modal to close");
   await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 10000 });
 
   steps.push(`✅ Created ticket: ${name}`);
 }
 
-
-
 app.post("/create-tickets", async (req, res) => {
   const steps = [];
   const { eventID } = req.body;
   if (!eventID) return res.status(400).send("Missing eventID");
-
-  // ✅ Send early response to Airtable
-  // res.send({ status: "started", message: "Ticket creation started" });
 
   try {
     steps.push("Launching browser");
@@ -191,9 +158,6 @@ app.post("/create-tickets", async (req, res) => {
     steps.push("Navigating to: " + targetURL);
     await page.goto(targetURL, { timeout: 60000 });
 
-    // ✅ Create tickets
-
-
     await createTicket(
       page,
       steps,
@@ -210,13 +174,18 @@ app.post("/create-tickets", async (req, res) => {
       "Early-bird access to networking dinner (food, beverage & gratuity not included in price)"
     );
 
-
     steps.push("✅ Both tickets created successfully");
     await browser.close();
     steps.push("✅ Browser closed");
-    console.log("All steps completed:", steps);
+
+    return res.send({ status: "success", steps });
   } catch (err) {
     console.error("❌ Error during ticket creation:", err.message);
+    return res.status(500).json({
+      status: "error",
+      steps,
+      error: err.message,
+    });
   }
 });
 
