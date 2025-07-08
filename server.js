@@ -7,19 +7,22 @@ const app = express();
 app.use(express.json());
 
 async function launchBrowser() {
-  const isRender = !!(await chromium.executablePath);
-  const executablePath = isRender
-    ? await chromium.executablePath
-    : process.env.LOCAL_CHROME_PATH;
+  const executablePath = await chromium.executablePath;
+
+  if (!executablePath) {
+    throw new Error("❌ chromium.executablePath not found. Make sure you're using `chrome-aws-lambda` on Render.");
+  }
 
   return await puppeteer.launch({
     executablePath,
-    headless: true, // true for Render
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: chromium.headless,
+    args: chromium.args,
     ignoreHTTPSErrors: true,
     defaultViewport: chromium.defaultViewport,
   });
 }
+
+
 
 async function createTicket(page, steps, name, description) {
   steps.push(`Opening modal to create: ${name}`);
