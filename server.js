@@ -23,23 +23,22 @@ app.get("/", async (req, res) => {
       },
     );
 
-    // Take screenshot
     const screenshotPath = `screenshot-${Date.now()}.png`;
     await page.screenshot({ path: screenshotPath, fullPage: true });
     console.log("✅ Screenshot saved as", screenshotPath);
 
-    // Log HTML content (first 1000 chars)
     const html = await page.content();
     console.log("🔍 Page HTML (partial):", html.slice(0, 1000));
 
     await browser.close();
+
+    // ✅ Only one response
     res.send("Tickets created");
   } catch (err) {
     res.status(500).send(`Error: ${err.message}`);
   }
-
-  res.send("✅ Server is up and running!");
 });
+
 
 app.post("/create-tickets", async (req, res) => {
   const { eventID } = req.body;
