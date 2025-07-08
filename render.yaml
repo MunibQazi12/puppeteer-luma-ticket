@@ -3,7 +3,7 @@ services:
     name: puppeteer-luma-ticket
     env: node
     plan: standard
-    buildCommand: "npm install"
+    buildCommand: "npm install --legacy-peer-deps"
     startCommand: "npm start"
     envVars:
       - key: NODE_ENV
