@@ -31,7 +31,7 @@ async function createTicket(page, steps, name, description) {
   });
 
   steps.push("Waiting for modal to appear");
-  await page.waitForSelector('input[name="name"]', { timeout: 10000 });
+  await page.waitForSelector('input[name="name"]', { timeout: 15000 });
 
   steps.push(`Typing Ticket Name: ${name}`);
   await page.click('input[name="name"]', { clickCount: 3 });
