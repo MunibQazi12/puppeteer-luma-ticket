@@ -1,7 +1,5 @@
 require("dotenv").config();
 const express = require("express");
-// const puppeteer = require("puppeteer-core");
-// const chromium = require("chrome-aws-lambda");
 const puppeteer = require("puppeteer");
 
 const app = express();
@@ -10,19 +8,107 @@ app.use(express.json());
 async function launchBrowser() {
   return await puppeteer.launch({
     headless: true,
+    // executablePath: '/usr/bin/chromium-browser',
     args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 }
 
+// Helper: Convert UTC ISO date string to PDT date object and 12-hour time string (e.g. "07:00 AM")
+function convertUTCToPDT(dateStr) {
+  const date = new Date(dateStr);
+  const offsetMillis = 7 * 60 * 60 * 1000; // PDT is UTC-7 during daylight saving
+  const pdtDate = new Date(date.getTime() - offsetMillis);
+
+  let hours = pdtDate.getHours();
+  const minutes = pdtDate.getMinutes().toString().padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+
+  return {
+    dateObj: pdtDate,
+    timeString: `${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`,
+    year: pdtDate.getFullYear(),
+    month: pdtDate.getMonth() + 1,
+    day: pdtDate.getDate(),
+  };
+}
+
+async function clickDate(page, dateStr) {
+  // dateStr format: ISO string (e.g., "2025-08-06T00:00:00.000Z" PDT adjusted)
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // 1-based
+  const day = date.getDate();
+
+  const monthKey = `${year}-${month}`;
+  const dayStr = String(day);
+
+  await page.waitForSelector(`[data-lux-date-picker-month="${monthKey}"]`, { visible: true, timeout: 10000 });
+
+  await page.evaluate((monthKey) => {
+    const monthBlock = document.querySelector(`[data-lux-date-picker-month="${monthKey}"]`);
+    if (monthBlock) monthBlock.scrollIntoView({ block: "center" });
+  }, monthKey);
+
+  const clicked = await page.evaluate((monthKey, dayStr) => {
+    const monthBlock = document.querySelector(`[data-lux-date-picker-month="${monthKey}"]`);
+    if (!monthBlock) return false;
+    const days = [...monthBlock.querySelectorAll('div.day')];
+    const dayToClick = days.find(d => d.textContent.trim() === dayStr);
+    if (dayToClick) {
+      dayToClick.click();
+      return true;
+    }
+    return false;
+  }, monthKey, dayStr);
+
+  if (!clicked) throw new Error(`Date ${dayStr} in month ${monthKey} not found in calendar`);
+}
+
+async function clickTime(page, dateStr) {
+  const date = new Date(dateStr);
+
+  // Convert to 12-hour format with AM/PM, e.g. "07:00 AM"
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12; // convert 0 to 12 for 12 AM
+  const timeToClick = `${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
+
+  // Wait for any visible time dropdown container to appear
+  await page.waitForFunction(() => {
+    const menus = [...document.querySelectorAll(".lux-menu-wrapper")];
+    return menus.some(menu => menu.offsetParent !== null);
+  }, { timeout: 10000 });
+
+  // Find the visible dropdown menu and click the matching time option
+  const timeClicked = await page.evaluate((timeToClick) => {
+    const menus = [...document.querySelectorAll(".lux-menu-wrapper")];
+    // Find the first visible menu
+    const visibleMenu = menus.find(menu => menu.offsetParent !== null);
+    if (!visibleMenu) return false;
+
+    const items = [...visibleMenu.querySelectorAll(".jsx-163bcec685fd7e8e.item")];
+    const matching = items.find(item => item.textContent.trim() === timeToClick);
+    if (matching) {
+      matching.click();
+      return true;
+    }
+    return false;
+  }, timeToClick);
+
+  if (!timeClicked) {
+    throw new Error(`Time "${timeToClick}" not found in time picker`);
+  }
+}
 
 
-
-async function createTicket(page, steps, name, description) {
+async function createTicket(page, steps, name, description, purchaseDeadline, pricingPerSeat) {
   steps.push(`Opening modal to create: ${name}`);
 
-  await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 10000 });
-
+  await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 15000 });
   await page.waitForSelector("button .label", { timeout: 10000 });
+
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
       b.innerText.includes("New Ticket Type")
@@ -30,13 +116,27 @@ async function createTicket(page, steps, name, description) {
     if (btn) btn.click();
   });
 
-  steps.push("Waiting for modal to appear");
-  await page.waitForSelector('input[name="name"]', { timeout: 15000 });
+  await page.waitForFunction(() => {
+    const input = document.querySelector('input[name="name"]');
+    return input && !input.disabled && !input.readOnly && input.offsetParent !== null;
+  }, { timeout: 10000 });
+
+  await new Promise(res => setTimeout(res, 300));
 
   steps.push(`Typing Ticket Name: ${name}`);
-  await page.click('input[name="name"]', { clickCount: 3 });
-  await page.keyboard.press("Backspace");
-  await page.type('input[name="name"]', name, { delay: 50 });
+
+  await page.waitForSelector('input[name="name"]', { visible: true, timeout: 10000 });
+
+  await page.evaluate((value) => {
+    const input = document.querySelector('input[name="name"]');
+    if (!input) return;
+
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    nativeInputValueSetter?.call(input, value);
+
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, name);
 
   steps.push("Clicking Add Description");
   await page.evaluate(() => {
@@ -61,6 +161,128 @@ async function createTicket(page, steps, name, description) {
     if (toggle && !toggle.checked) toggle.click();
   });
 
+  steps.push("Clicking Limits & Restrictions");
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("div[role='button']")].find(b =>
+      b.innerText.includes("Limits") && b.innerText.includes("Sales")
+    );
+    if (btn) btn.click();
+  });
+
+  steps.push("Filling capacity");
+  await page.waitForSelector('input[name="max_capacity"]', { timeout: 10000 });
+  await page.click('input[name="max_capacity"]', { clickCount: 3 });
+  await page.keyboard.press("Backspace");
+  await page.type('input[name="max_capacity"]', name.includes("Early") ? "3" : "5");
+
+  steps.push("Enabling sales end toggle");
+  await page.evaluate(() => {
+    const toggle = document.querySelector("#valid-end-toggle");
+    if (toggle && !toggle.checked) toggle.click();
+  });
+
+  if (purchaseDeadline) {
+    steps.push("Filling sales end date & time");
+
+    // Convert UTC purchaseDeadline to PDT date and time
+    const { dateObj, timeString } = convertUTCToPDT(purchaseDeadline);
+
+    // Open calendar popup by clicking date input
+    await page.evaluate(() => {
+      const parent = document.querySelector('.jsx-90b448f30dd66b00.flex-column');
+      if (!parent) {
+        console.warn('Parent container not found');
+        return;
+      }
+
+      const children = [...parent.children];
+      if (children.length < 5) {
+        console.warn('Less than 5 children found');
+        return;
+      }
+
+      const fifthChild = children[4];
+      if (!fifthChild) {
+        console.warn('5th child not found');
+        return;
+      }
+
+      const wrapperDiv = fifthChild.querySelector('div.lux-menu-trigger-wrapper.cursor-pointer');
+      if (!wrapperDiv) {
+        console.warn('Date input wrapper div not found');
+        return;
+      }
+
+      const dateInput = wrapperDiv.querySelector('input[type="text"]');
+      if (!dateInput) {
+        console.warn('Date text input not found');
+        return;
+      }
+
+      dateInput.click();
+    });
+
+    await new Promise(res => setTimeout(res, 300));
+
+    await clickDate(page, dateObj.toISOString());
+
+    await new Promise(res => setTimeout(res, 300));
+
+    // Click time input to open time dropdown
+    const timeInputSelector = '.jsx-90b448f30dd66b00.flex-column > :nth-child(5) div.datetime-input > div.time-input input[type="time"]';
+    await page.waitForSelector(timeInputSelector, { visible: true, timeout: 10000 });
+    await page.click(timeInputSelector);
+
+    await new Promise(res => setTimeout(res, 300));
+
+    await clickTime(page, dateObj.toISOString());
+  }
+
+  // Rest of your createTicket function unchanged...
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  steps.push("Clicking Back from modal");
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(b =>
+      b.getAttribute("aria-label") === "Back"
+    );
+    if (btn) btn.click();
+  });
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  steps.push("Clicking Paid ticket type");
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(b =>
+      b.innerText.trim() === "Paid"
+    );
+    if (btn) btn.click();
+  });
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  if (pricingPerSeat !== undefined && pricingPerSeat !== null) {
+    steps.push("Typing ticket price");
+
+    const price = name.includes("Early")
+      ? (pricingPerSeat * 0.85).toFixed(2)
+      : pricingPerSeat.toFixed(2);
+
+    await page.waitForSelector('input[type="text"].monospace', { visible: true, timeout: 10000 });
+
+    await page.evaluate((priceVal) => {
+      const input = document.querySelector('input[type="text"].monospace');
+      if (!input) return;
+
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      nativeInputValueSetter?.call(input, priceVal);
+
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, price);
+  }
+
   steps.push("Submitting ticket form");
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
@@ -70,14 +292,15 @@ async function createTicket(page, steps, name, description) {
   });
 
   steps.push("Waiting for modal to close");
-  await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 10000 });
+  await new Promise(r => setTimeout(r, 1000));
+  await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 20000 });
 
   steps.push(`✅ Created ticket: ${name}`);
 }
 
 app.post("/create-tickets", async (req, res) => {
   const steps = [];
-  const { eventID } = req.body;
+  const { eventID, purchaseDeadline, pricingPerSeat } = req.body;
   if (!eventID) return res.status(400).send("Missing eventID");
 
   try {
@@ -140,10 +363,7 @@ app.post("/create-tickets", async (req, res) => {
     });
 
     steps.push("Waiting for dashboard");
-    await page.waitForNavigation({
-      timeout: 60000,
-      waitUntil: "networkidle0",
-    });
+    await page.waitForNavigation({ timeout: 60000, waitUntil: "networkidle0" });
 
     const currentUrl = page.url();
     if (!currentUrl.startsWith("https://lu.ma/home")) {
@@ -157,17 +377,20 @@ app.post("/create-tickets", async (req, res) => {
     await createTicket(
       page,
       steps,
-      "General Ticket",
-      "Access to networking dinner (food, beverage & gratuity not included in price)"
+      "Early Bird Ticket",
+      "Early-bird access to networking dinner (food, beverage & gratuity not included in price)",
+      purchaseDeadline,
+      pricingPerSeat
     );
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
+    await new Promise(r => setTimeout(r, 2000));
     await createTicket(
       page,
       steps,
-      "Early Bird Ticket",
-      "Early-bird access to networking dinner (food, beverage & gratuity not included in price)"
+      "General Ticket",
+      "Access to networking dinner (food, beverage & gratuity not included in price)",
+      purchaseDeadline,
+      pricingPerSeat
     );
 
     steps.push("✅ Both tickets created successfully");
@@ -176,12 +399,8 @@ app.post("/create-tickets", async (req, res) => {
 
     return res.send({ status: "success", steps });
   } catch (err) {
-    console.error("❌ Error during ticket creation:", err.message);
-    return res.status(500).json({
-      status: "error",
-      steps,
-      error: err.message,
-    });
+    console.error("❌ Error during ticket creation:", err.message, err);
+    return res.status(500).json({ status: "error", steps, error: err.message });
   }
 });
 
