@@ -107,7 +107,7 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
   steps.push(`Opening modal to create: ${name}`);
 
   await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 15000 });
-  await page.waitForSelector("button .label", { timeout: 10000 });
+  await page.waitForSelector("button .label", { timeout: 20000 });
 
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll("button")].find(b =>
