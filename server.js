@@ -414,30 +414,33 @@ app.post("/create-tickets", async (req, res) => {
     steps.push("Navigating to: " + targetURL);
     await page.goto(targetURL, { timeout: 60000 });
 
-    await createTicket(
-      page,
-      steps,
-      "Early Bird Ticket",
-      "Early-bird access to networking dinner (food, beverage & gratuity not included in price)",
-      purchaseDeadline,
-      pricingPerSeat
-    );
-
-    await new Promise(r => setTimeout(r, 2000));
-
     await deleteDefaultTicket(page, steps); // 🔥 NEW STEP
+    steps.push("✅ Default ticket deleted successfully");
 
-    await new Promise(r => setTimeout(r, 2000));
-    await createTicket(
-      page,
-      steps,
-      "General Ticket",
-      "Access to networking dinner (food, beverage & gratuity not included in price)",
-      purchaseDeadline,
-      pricingPerSeat
-    );
 
-    steps.push("✅ Both tickets created successfully");
+    // await createTicket(
+    //   page,
+    //   steps,
+    //   "Early Bird Ticket",
+    //   "Early-bird access to networking dinner (food, beverage & gratuity not included in price)",
+    //   purchaseDeadline,
+    //   pricingPerSeat
+    // );
+
+    // await new Promise(r => setTimeout(r, 2000));
+
+
+    // await new Promise(r => setTimeout(r, 2000));
+    // await createTicket(
+    //   page,
+    //   steps,
+    //   "General Ticket",
+    //   "Access to networking dinner (food, beverage & gratuity not included in price)",
+    //   purchaseDeadline,
+    //   pricingPerSeat
+    // );
+
+    // steps.push("✅ Both tickets created successfully");
     await browser.close();
     steps.push("✅ Browser closed");
 
