@@ -304,18 +304,25 @@ async function deleteDefaultTicket(page, steps) {
   // Step 1: Find the ticket row with "Standard"
   const deleted = await page.evaluate(() => {
     const rows = [...document.querySelectorAll("div.base-list-row.clickable")];
+    steps.push("Found " + rows.length + " rows");
+
     const targetRow = rows.find(r => r.textContent.includes("Standard") && r.textContent.includes("Free"));
+    steps.push("Found target row: " + targetRow);
     if (!targetRow) return false;
 
+    steps.push("Found target row: " + targetRow.textContent);
     // Step 2: Look for the kebab menu button inside the row
     const menuBtn = [...targetRow.querySelectorAll("button")]
       .find(b => b.getAttribute("aria-label") === "Reorder");
+
+    steps.push("Found menu button: " + menuBtn);
 
     if (menuBtn) {
       menuBtn.click();
       return true;
     }
 
+    steps.push("No menu button found");
     return false;
   });
 
