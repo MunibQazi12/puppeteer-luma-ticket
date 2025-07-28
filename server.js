@@ -298,6 +298,46 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
   steps.push(`✅ Created ticket: ${name}`);
 }
 
+async function deleteDefaultTicket(page, steps) {
+  steps.push("🔍 Looking for default ticket");
+
+  // Find the ticket row with the text "Standard"
+  const deleted = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("div.ticket-row, div.ticket")];
+    const targetRow = rows.find(r => r.textContent.includes("Standard"));
+    if (!targetRow) return false;
+
+    const deleteBtn = [...targetRow.querySelectorAll("button")].find(b =>
+      b.textContent.includes("Delete") || b.getAttribute("aria-label") === "Delete"
+    );
+    if (deleteBtn) {
+      deleteBtn.click();
+      return true;
+    }
+    return false;
+  });
+
+  if (!deleted) {
+    steps.push("⚠️ No default ticket found to delete");
+    return;
+  }
+
+  steps.push("🧾 Deletion confirmation modal opened");
+
+  // Wait for and confirm modal delete button
+  await page.waitForSelector(".lux-button.error .label", { visible: true, timeout: 10000 });
+
+  await page.evaluate(() => {
+    const confirmBtn = [...document.querySelectorAll("button")]
+      .find(b => b.textContent.trim() === "Delete");
+    if (confirmBtn) confirmBtn.click();
+  });
+
+  steps.push("✅ Deleted default ticket");
+  await new Promise(r => setTimeout(r, 1000));
+}
+
+
 app.post("/create-tickets", async (req, res) => {
   const steps = [];
   const { eventID, purchaseDeadline, pricingPerSeat } = req.body;
@@ -382,6 +422,10 @@ app.post("/create-tickets", async (req, res) => {
       purchaseDeadline,
       pricingPerSeat
     );
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    await deleteDefaultTicket(page, steps); // 🔥 NEW STEP
 
     await new Promise(r => setTimeout(r, 2000));
     await createTicket(
