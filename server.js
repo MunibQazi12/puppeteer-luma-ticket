@@ -301,19 +301,21 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
 async function deleteDefaultTicket(page, steps) {
   steps.push("🔍 Looking for default ticket");
 
-  // Find the ticket row with the text "Standard"
+  // Step 1: Find the ticket row with "Standard"
   const deleted = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll("div.ticket-row, div.ticket")];
-    const targetRow = rows.find(r => r.textContent.includes("Standard"));
+    const rows = [...document.querySelectorAll("div.base-list-row.clickable")];
+    const targetRow = rows.find(r => r.textContent.includes("Standard") && r.textContent.includes("Free"));
     if (!targetRow) return false;
 
-    const deleteBtn = [...targetRow.querySelectorAll("button")].find(b =>
-      b.textContent.includes("Delete") || b.getAttribute("aria-label") === "Delete"
-    );
-    if (deleteBtn) {
-      deleteBtn.click();
+    // Step 2: Look for the kebab menu button inside the row
+    const menuBtn = [...targetRow.querySelectorAll("button")]
+      .find(b => b.getAttribute("aria-label") === "Reorder");
+
+    if (menuBtn) {
+      menuBtn.click();
       return true;
     }
+
     return false;
   });
 
@@ -324,9 +326,12 @@ async function deleteDefaultTicket(page, steps) {
 
   steps.push("🧾 Deletion confirmation modal opened");
 
-  // Wait for and confirm modal delete button
-  await page.waitForSelector(".lux-button.error .label", { visible: true, timeout: 10000 });
+  // Step 3: Wait for and click the "Delete" option in the kebab menu
+  await page.waitForSelector("text=Delete", { visible: true, timeout: 5000 });
+  await page.click("text=Delete");
 
+  // Step 4: Wait for confirmation modal and confirm deletion
+  await page.waitForSelector(".lux-button.error .label", { visible: true, timeout: 10000 });
   await page.evaluate(() => {
     const confirmBtn = [...document.querySelectorAll("button")]
       .find(b => b.textContent.trim() === "Delete");
@@ -334,8 +339,9 @@ async function deleteDefaultTicket(page, steps) {
   });
 
   steps.push("✅ Deleted default ticket");
-  await new Promise(r => setTimeout(r, 1000));
+  await page.waitForTimeout(1000);
 }
+
 
 
 app.post("/create-tickets", async (req, res) => {
