@@ -299,54 +299,226 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
 }
 
 async function deleteDefaultTicket(page, steps) {
-  steps.push("🔍 Looking for default ticket");
+  steps.push("🔍 Looking for Standard ticket");
 
-  // Step 1: Find the ticket row with "Standard"
-  const deleted = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll("div.base-list-row.clickable")];
-    steps.push("Found " + rows.length + " rows");
+  await page.waitForSelector("div.base-list-row.clickable", { visible: true, timeout: 10000 });
 
-    const targetRow = rows.find(r => r.textContent.includes("Standard") && r.textContent.includes("Free"));
-    steps.push("Found target row: " + targetRow);
-    if (!targetRow) return false;
+  const StandardTicket = await page.evaluate(() => {
+    const logs = [];
 
-    steps.push("Found target row: " + targetRow.textContent);
-    // Step 2: Look for the kebab menu button inside the row
-    const menuBtn = [...targetRow.querySelectorAll("button")]
-      .find(b => b.getAttribute("aria-label") === "Reorder");
-
-    steps.push("Found menu button: " + menuBtn);
-
-    if (menuBtn) {
-      menuBtn.click();
-      return true;
+    const row = document.querySelector("div.base-list-row.clickable");
+    if (!row) {
+      logs.push("❌ No '.base-list-row.clickable' found.");
+      return { clicked: false, logs };
     }
 
-    steps.push("No menu button found");
-    return false;
+    logs.push("✅ Found ticket row element.");
+
+    const leftGroup = row.querySelector("div.left.min-width-0");
+    if (!leftGroup) {
+      logs.push("❌ No '.left.min-width-0' group found.");
+      return { clicked: false, logs };
+    }
+
+    const childDivs = leftGroup.querySelectorAll("div.min-width-0");
+    logs.push(`🔍 Found ${childDivs.length} .min-width-0 divs inside left group.`);
+
+    const name = childDivs[0]?.textContent?.trim();
+    logs.push(`🧾 Extracted ticket name: "${name}"`);
+
+    if (name === "Standard") {
+      row.click();
+      logs.push("✅ Ticket name matched 'Standard'. Clicked.");
+      return { clicked: true, logs };
+    }
+
+    logs.push("⚠️ Ticket name did not match 'Standard'.");
+    return { clicked: false, logs };
   });
 
-  if (!deleted) {
-    steps.push("⚠️ No default ticket found to delete");
+  for (const log of StandardTicket.logs) {
+    steps.push(log);
+  }
+
+  steps.push("clicked: " + StandardTicket.clicked);
+
+  if (!StandardTicket.clicked) {
+    steps.push("⚠️ No ticket named 'Standard' found to delete");
     return;
   }
 
-  steps.push("🧾 Deletion confirmation modal opened");
+  steps.push("🧾 Modal opened");
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Step 3: Wait for and click the "Delete" option in the kebab menu
-  await page.waitForSelector("text=Delete", { visible: true, timeout: 5000 });
-  await page.click("text=Delete");
+  const threeDotsClick = await page.evaluate(() => {
+    const logs = [];
 
-  // Step 4: Wait for confirmation modal and confirm deletion
-  await page.waitForSelector(".lux-button.error .label", { visible: true, timeout: 10000 });
-  await page.evaluate(() => {
-    const confirmBtn = [...document.querySelectorAll("button")]
-      .find(b => b.textContent.trim() === "Delete");
-    if (confirmBtn) confirmBtn.click();
+    // Step 1: Find the anchor element
+    const iconDiv = document.querySelector('.text-secondary-alpha');
+
+    if (!iconDiv) {
+      logs.push("❌ Could not find element with class 'text-secondary-alpha'.");
+      return { success: false, logs };
+    }
+
+    // Step 2: Traverse up to the shared parent container
+    const container = iconDiv.closest('.flex-start.spread.gap-2');
+    if (!container) {
+      logs.push("❌ Could not find parent container from 'text-secondary-alpha'.");
+      return { success: false, logs };
+    }
+
+    // Step 3: Find the 'Actions' button within the container
+    const targetButton = container.querySelector('button[aria-label="Actions"]');
+    if (!targetButton) {
+      logs.push("❌ Could not find the 'Actions' button inside the sibling container.");
+      return { success: false, logs };
+    }
+
+    logs.push("✅ Found the correct 'Actions' button.");
+    logs.push("🔍 button.outerHTML:\n" + targetButton.outerHTML.trim());
+
+    // Scroll to and simulate real click events
+    targetButton.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    const events = ["pointerover", "pointerenter", "mousemove", "mousedown", "mouseup", "click"];
+    for (const type of events) {
+      const event = new MouseEvent(type, {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        buttons: 1,
+      });
+      targetButton.dispatchEvent(event);
+    }
+
+    logs.push("✅ Click simulation dispatched successfully.");
+    return { success: true, logs };
   });
 
-  steps.push("✅ Deleted default ticket");
-  await page.waitForTimeout(1000);
+  // Print logs
+  if (threeDotsClick.logs && Array.isArray(threeDotsClick.logs)) {
+    threeDotsClick.logs.forEach(log => console.log("→", log));
+  }
+
+  if (!threeDotsClick.success) {
+    console.log("❌ Failed to click the target 'Actions' button.");
+  } else {
+    console.log("✅ Successfully clicked the target 'Actions' button.");
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+  const deleteTicketTypeButton = await page.evaluate(() => {
+    const logs = [];
+
+    // Step 1: Get all menu items with the expected class
+    const menuItems = Array.from(document.querySelectorAll('.lux-menu-item'));
+
+    if (menuItems.length === 0) {
+      logs.push("❌ No elements with class 'lux-menu-item' found.");
+      return { success: false, logs };
+    }
+
+    // Step 2: Find the one with the 'Delete Ticket Type' title
+    const target = menuItems.find(item => {
+      const titleDiv = item.querySelector('.title');
+      return titleDiv?.textContent?.trim() === 'Delete Ticket Type';
+    });
+
+    if (!target) {
+      logs.push("❌ Could not find the 'Delete Ticket Type' menu item.");
+      return { success: false, logs };
+    }
+
+    // Step 3: Scroll into view and simulate click
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const events = ['pointerover', 'pointerenter', 'mousemove', 'mousedown', 'mouseup', 'click'];
+    for (const type of events) {
+      const event = new MouseEvent(type, {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        buttons: 1,
+      });
+      target.dispatchEvent(event);
+    }
+
+    logs.push("✅ Successfully clicked 'Delete Ticket Type'.");
+    return { success: true, logs };
+  });
+
+  // Print logs
+  if (deleteTicketTypeButton.logs && Array.isArray(deleteTicketTypeButton.logs)) {
+    deleteTicketTypeButton.logs.forEach(log => console.log("→", log));
+  }
+
+  if (!deleteTicketTypeButton.success) {
+    console.log("❌ Failed to click the 'Delete Ticket Type' menu item.");
+  } else {
+    console.log("✅ Clicked 'Delete Ticket Type' menu item.");
+  }
+
+  // await page.waitForTimeout(2000);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+  const finalDeleteButtonInModal = await page.evaluate(() => {
+    const logs = [];
+  
+    // Target the modal wrapper more specifically
+    const modal = document.querySelector('.lux-modal-body .alert-wrapper');
+  
+    if (!modal) {
+      logs.push("❌ Could not find '.alert-wrapper' inside '.lux-modal-body'.");
+      return { success: false, logs };
+    }
+  
+    // Find the delete button with inner label text 'Delete'
+    const deleteButton = Array.from(modal.querySelectorAll('button')).find(btn => {
+      const label = btn.querySelector('.label');
+      return label && label.textContent.trim() === 'Delete';
+    });
+  
+    if (!deleteButton) {
+      logs.push("❌ Could not find 'Delete' button inside modal.");
+      return { success: false, logs };
+    }
+  
+    deleteButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  
+    const events = ['pointerover', 'pointerenter', 'mousemove', 'mousedown', 'mouseup', 'click'];
+    for (const type of events) {
+      const event = new MouseEvent(type, {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        buttons: 1,
+      });
+      deleteButton.dispatchEvent(event);
+    }
+  
+    logs.push("✅ Clicked the 'Delete' button inside modal.");
+    return { success: true, logs };
+  });
+  
+  // Output logs
+  if (finalDeleteButtonInModal.logs && Array.isArray(finalDeleteButtonInModal.logs)) {
+    finalDeleteButtonInModal.logs.forEach(log => steps.push(log));
+  }
+  
+  if (!finalDeleteButtonInModal.success) {
+    steps.push("❌ Failed to click modal 'Delete' button.");
+  } else {
+    steps.push("✅ Modal 'Delete' button clicked.");
+  }
+  
+  await new Promise(resolve => setTimeout(resolve, 10000));
+
+  return true;
+
 }
 
 
@@ -427,31 +599,32 @@ app.post("/create-tickets", async (req, res) => {
     steps.push("Navigating to: " + targetURL);
     await page.goto(targetURL, { timeout: 60000 });
 
+    await new Promise(r => setTimeout(r, 2000));
+
     await deleteDefaultTicket(page, steps); // 🔥 NEW STEP
     steps.push("✅ Default ticket deleted successfully");
 
+    await new Promise(r => setTimeout(r, 1000));
 
-    // await createTicket(
-    //   page,
-    //   steps,
-    //   "Early Bird Ticket",
-    //   "Early-bird access to networking dinner (food, beverage & gratuity not included in price)",
-    //   purchaseDeadline,
-    //   pricingPerSeat
-    // );
+    await createTicket(
+      page,
+      steps,
+      "Early Bird Ticket",
+      "Early-bird access to networking dinner (food, beverage & gratuity not included in price)",
+      purchaseDeadline,
+      pricingPerSeat
+    );
 
-    // await new Promise(r => setTimeout(r, 2000));
-
-
-    // await new Promise(r => setTimeout(r, 2000));
-    // await createTicket(
-    //   page,
-    //   steps,
-    //   "General Ticket",
-    //   "Access to networking dinner (food, beverage & gratuity not included in price)",
-    //   purchaseDeadline,
-    //   pricingPerSeat
-    // );
+    await new Promise(r => setTimeout(r, 1000));
+    await createTicket(
+      page,
+      steps,
+      "General Ticket",
+      "Access to networking dinner (food, beverage & gratuity not included in price)",
+      purchaseDeadline,
+      pricingPerSeat
+    );
+    await new Promise(r => setTimeout(r, 500));
 
     // steps.push("✅ Both tickets created successfully");
     await browser.close();
