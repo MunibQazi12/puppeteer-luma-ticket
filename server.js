@@ -105,6 +105,7 @@ async function clickTime(page, dateStr) {
 
 async function createTicket(page, steps, name, description, purchaseDeadline, pricingPerSeat) {
   steps.push(`Opening modal to create: ${name}`);
+  console.log("Opening modal to create", page, steps, name, description, purchaseDeadline, pricingPerSeat);
 
   await page.waitForSelector('input[name="name"]', { hidden: true, timeout: 15000 });
   await page.waitForSelector("button .label", { timeout: 20000 });
@@ -124,6 +125,7 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
   await new Promise(res => setTimeout(res, 300));
 
   steps.push(`Typing Ticket Name: ${name}`);
+  console.log("Typing Ticket Name", name);
 
   await page.waitForSelector('input[name="name"]', { visible: true, timeout: 10000 });
 
@@ -147,6 +149,7 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
   });
 
   steps.push("Typing description");
+  console.log("Typing description", description);
   await page.waitForSelector("textarea", { timeout: 5000 });
   await page.focus("textarea");
   await page.keyboard.down('Control');
@@ -176,6 +179,7 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
   await page.type('input[name="max_capacity"]', name.includes("Early") ? "3" : "5");
 
   steps.push("Enabling sales end toggle");
+  console.log("Enabling sales end toggle");
   await page.evaluate(() => {
     const toggle = document.querySelector("#valid-end-toggle");
     if (toggle && !toggle.checked) toggle.click();
@@ -183,7 +187,7 @@ async function createTicket(page, steps, name, description, purchaseDeadline, pr
 
   if (purchaseDeadline) {
     steps.push("Filling sales end date & time");
-
+    console.log("Filling sales end date & time");
     // Convert UTC purchaseDeadline to PDT date and time
     const { dateObj, timeString } = convertUTCToPDT(purchaseDeadline);
 
@@ -507,15 +511,18 @@ async function deleteDefaultTicket(page, steps) {
   // Output logs
   if (finalDeleteButtonInModal.logs && Array.isArray(finalDeleteButtonInModal.logs)) {
     finalDeleteButtonInModal.logs.forEach(log => steps.push(log));
+    console.log("→", finalDeleteButtonInModal.logs);
   }
   
   if (!finalDeleteButtonInModal.success) {
     steps.push("❌ Failed to click modal 'Delete' button.");
+    console.log("❌ Failed to click modal 'Delete' button.");
   } else {
     steps.push("✅ Modal 'Delete' button clicked.");
+    console.log("✅ Modal 'Delete' button clicked.");
   }
   
-  await new Promise(resolve => setTimeout(resolve, 10000));
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   return true;
 
@@ -601,11 +608,6 @@ app.post("/create-tickets", async (req, res) => {
 
     await new Promise(r => setTimeout(r, 2000));
 
-    await deleteDefaultTicket(page, steps); // 🔥 NEW STEP
-    steps.push("✅ Default ticket deleted successfully");
-
-    await new Promise(r => setTimeout(r, 1000));
-
     await createTicket(
       page,
       steps,
@@ -614,8 +616,16 @@ app.post("/create-tickets", async (req, res) => {
       purchaseDeadline,
       pricingPerSeat
     );
+    console.log("✅ Early Bird Ticket created successfully");
 
     await new Promise(r => setTimeout(r, 1000));
+
+    await deleteDefaultTicket(page, steps); // 🔥 NEW STEP
+    steps.push("✅ Default ticket deleted successfully");
+    console.log("✅ Default ticket deleted successfully");
+
+    await new Promise(r => setTimeout(r, 1000));
+
     await createTicket(
       page,
       steps,
@@ -624,6 +634,8 @@ app.post("/create-tickets", async (req, res) => {
       purchaseDeadline,
       pricingPerSeat
     );
+    console.log("✅ General Ticket created successfully");
+
     await new Promise(r => setTimeout(r, 500));
 
     // steps.push("✅ Both tickets created successfully");
